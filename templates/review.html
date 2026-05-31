@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>答案解析 - AI 智慧课堂</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/script.js"></script>
+</head>
+<body>
+    <div class="menu">
+        <div class="logo">蜗牛 AI 智慧课堂</div>
+        <div id="welcome">
+            <a href="/index">返回首页</a>
+        </div>
+    </div>
+
+    <div class="exam-box">
+        <h2 style="text-align: center; margin: 20px;">答案解析与对比</h2>
+        <p style="text-align: center; font-size: 18px;">
+            总分：<strong style="color: green;">{{ total_score }}分</strong> &nbsp;&nbsp;
+            正确题数：<strong style="color: green;">{{ correct_count }}/{{ total_count }}</strong>
+        </p>
+
+        {% for exam in exams %}
+            {% set user_result = user_result_dict.get(exam.Exams.examid, {}) %}
+            {% set user_answer = user_result.get('answer', '') %}
+            {% set user_score = user_result.get('score', 0) %}
+            {% set is_correct = user_score > 0 %}
+
+            {% if exam.Exams.type == 'choice' %}
+            <div class="choice-box" style="margin: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 10px; background: #fff;">
+                <div class="question" style="font-weight: bold; margin-bottom: 15px;">
+                    第{{loop.index}}题（选择题）：{{exam.Exams.question}}
+                    <span style="color: blue; margin-left: 10px;">（分值：{{exam.Exams.score}}分）</span>
+                    {% if is_correct %}
+                        <span style="color: green; margin-left: 10px;">✓ 正确</span>
+                    {% else %}
+                        <span style="color: red; margin-left: 10px;">✗ 错误</span>
+                    {% endif %}
+                </div>
+
+                <div class="options" style="margin-bottom: 15px;">
+                    {% set opts = exam_options.get(exam.Exams.examid, {}) %}
+                    {% for k, v in opts.items() %}
+                        <div style="padding: 8px; margin: 5px 0; border-radius: 5px;
+                                    {% if k == exam.Exams.answer %}background: #d4edda; border: 2px solid #28a745;{% endif %}
+                                    {% if k == user_answer and not is_correct %}background: #f8d7da; border: 2px solid #dc3545;{% endif %}">
+                            {% if k == user_answer %}
+                                <strong>{{k}}. {{v}}</strong>
+                                {% if is_correct %}
+                                    <span style="color: green;">✓ 你的答案</span>
+                                {% else %}
+                                    <span style="color: red;">✗ 你的答案（错误）</span>
+                                {% endif %}
+                            {% else %}
+                                {{k}}. {{v}}
+                            {% endif %}
+                            {% if k == exam.Exams.answer %}
+                                <span style="color: green; margin-left: 10px;">✓ 正确答案</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="result" style="padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                    <p style="margin: 5px 0;">你的答案：<strong style="color: {% if is_correct %}green{% else %}red{% endif %};">{{ user_answer }}</strong></p>
+                    <p style="margin: 5px 0;">正确答案：<strong style="color: green;">{{ exam.Exams.answer }}</strong></p>
+                    <p style="margin: 5px 0;">得分：<strong style="color: {% if user_score > 0 %}green{% else %}red{% endif %};">{{ user_score }}分</strong></p>
+                </div>
+            </div>
+
+            {% elif exam.Exams.type == 'qa' %}
+            <div class="qa-box" style="margin: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 10px; background: #fff;">
+                <div class="question" style="font-weight: bold; margin-bottom: 15px;">
+                    第{{loop.index}}题（简答题）：{{exam.Exams.question}}
+                    <span style="color: blue; margin-left: 10px;">（分值：{{exam.Exams.score}}分）</span>
+                    {% if is_correct %}
+                        <span style="color: green; margin-left: 10px;">✓ 正确</span>
+                    {% else %}
+                        <span style="color: red; margin-left: 10px;">✗ 错误</span>
+                    {% endif %}
+                </div>
+
+                <div class="answer-compare" style="margin-bottom: 15px;">
+                    <div style="padding: 15px; margin: 10px 0; border-radius: 5px;
+                                {% if is_correct %}background: #d4edda; border: 2px solid #28a745;{% else %}background: #f8d7da; border: 2px solid #dc3545;{% endif %}">
+                        <p style="margin: 5px 0; color: gray;">你的答案：</p>
+                        <p style="margin: 5px 0; white-space: pre-wrap;">{{ user_answer }}</p>
+                        <p style="margin: 10px 0 0 0;">
+                            得分：<strong style="color: {% if user_score > 0 %}green{% else %}red{% endif %};">{{ user_score }}/{{ exam.Exams.score }}分</strong>
+                        </p>
+                    </div>
+
+                    <div style="padding: 15px; margin: 10px 0; border-radius: 5px; background: #d4edda; border: 2px solid #28a745;">
+                        <p style="margin: 5px 0; color: gray;">参考答案：</p>
+                        <p style="margin: 5px 0; white-space: pre-wrap;">{{ exam.Exams.answer }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        <div style="text-align: center; margin: 30px;">
+            <a href="/exam/{{video_id}}" style="margin-right: 20px; padding: 10px 30px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">重新考试</a>
+            <a href="/answer/{{video_id}}" style="margin-right: 20px; padding: 10px 30px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px;">只看答案</a>
+            <a href="/index" style="padding: 10px 30px; background: #6c757d; color: white; text-decoration: none; border-radius: 5px;">返回首页</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>查看答案</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/script.js"></script>
+    <script>
+        // 页面加载时，从 localStorage 获取 token 并添加到 URL
+        document.addEventListener("DOMContentLoaded", function () {
+            const token = localStorage.getItem("token");
+
+            // 更新调试信息
+            document.getElementById("token-ls").textContent = token ? token.substring(0, 50) + "..." : "不存在";
+            document.getElementById("token-url").textContent = new URLSearchParams(location.search).get("token") ? "存在" : "不存在";
+
+            if (token && !location.search.includes("token=")) {
+                location.href = location.pathname + "?token=" + token;
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="menu">
+        <div class="logo">蜗牛 AI 智慧课堂</div>
+        <div id="welcome">
+            <a href="/index">返回首页</a>
+        </div>
+    </div>
+
+    <div class="exam-box">
+        <!-- Token 调试信息 -->
+        <div id="token-debug" style="background: #fff3cd; padding: 15px; margin-bottom: 20px; border: 1px solid #ffc107; border-radius: 5px;">
+            <strong>Token 调试信息：</strong><br>
+            localStorage: <span id="token-ls">加载中...</span><br>
+            URL token: <span id="token-url">加载中...</span>
+        </div>
+
+        <h2 style="text-align: center; margin: 20px;">参考答案与解析</h2>
+        <p style="text-align: center; color: green; font-size: 18px;">你的总分：{{ total_score }}分</p>
+
+        {% for exam in exams %}
+        {% if exam.Exams.type == 'choice' %}
+        <div class="choice-box">
+            <div class="question">
+                第{{loop.index}}题（选择题）：{{exam.Exams.question}}
+                <span style="color: blue;">（分值：{{exam.Exams.score}}分）</span>
+            </div>
+            <div class="options">
+                {% for k, v in exam_options[exam.Exams.examid].items() %}
+                    <span style="margin-right: 20px;">
+                        {% if k == exam.Exams.answer %}
+                        <strong style="color: green;">{{k}}. {{v}} ✓</strong>
+                        {% else %}
+                        {{k}}. {{v}}
+                        {% endif %}
+                    </span>
+                {% endfor %}
+            </div>
+            <div class="answer" style="color: gray; margin-top: 10px;">
+                正确答案：{{exam.Exams.answer}}
+            </div>
+        </div>
+
+        {% elif exam.Exams.type == 'qa' %}
+        <div class="qa-box">
+            <div class="question">
+                第{{loop.index}}题（简答题）：{{exam.Exams.question}}
+                <span style="color: blue;">（分值：{{exam.Exams.score}}分）</span>
+            </div>
+            <div class="answer" style="margin: 10px auto; width: 95%;">
+                <p style="color: green;"><strong>参考答案：</strong></p>
+                <p style="background: #f0f0f0; padding: 10px; border-radius: 5px;">{{exam.Exams.answer}}</p>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        <div style="text-align: center; margin: 30px;">
+            <a href="/exam/{{video_id}}" style="margin-right: 20px; padding: 10px 30px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">重新考试</a>
+            <a href="/index" style="padding: 10px 30px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px;">返回首页</a>
+        </div>
+    </div>
+</body>
+</html>

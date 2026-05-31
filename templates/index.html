@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智慧课堂 - 首页</title>
+    <script src="/static/script.js"></script>
+    <script>
+        // 确保 toggleUploadType 在页面内可用
+        function toggleUploadType() {
+            var type = document.querySelector('input[name="upload_type"]:checked').value;
+            document.getElementById("file_upload_area").style.display = type === "file" ? "block" : "none";
+            document.getElementById("url_upload_area").style.display = type === "url" ? "block" : "none";
+            document.getElementById("pdf_upload_area").style.display = type === "pdf" ? "block" : "none";
+            document.getElementById("text_upload_area").style.display = type === "text" ? "block" : "none";
+            document.querySelectorAll('.radio-label').forEach(function(label) {
+                label.classList.toggle('active', label.querySelector('input').checked);
+            });
+        }
+        function fillPdfTitle() {
+            var title = document.getElementById("pdf_file").files[0].name;
+            title = title.split(".")[0];
+            document.getElementById("title").value = title;
+        }
+        function fillTextTitle() {
+            var title = document.getElementById("text_file").files[0].name;
+            title = title.split(".").slice(0, -1).join(".") || title;
+            document.getElementById("title").value = title;
+        }
+    </script>
+    <style>
+        /* 全局重置 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+
+        /* ========== 顶部导航栏 ========== */
+        .menu {
+            height: 60px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            padding: 0 28px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .menu .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #00d2ff;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+        }
+        .menu #welcome {
+            margin-left: auto;
+            font-size: 14px;
+            color: #00d2ff;
+        }
+        .menu #welcome a { color: #00d2ff; text-decoration: none; cursor: pointer; }
+        .menu #welcome a:hover { text-decoration: underline; }
+        .menu #welcome button {
+            padding: 6px 16px;
+            height: 34px;
+            border: none;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #00d2ff, #0099cc);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .menu #welcome button:hover { box-shadow: 0 0 15px rgba(0,210,255,0.3); }
+        .menu #welcome button.logout-btn {
+            margin-left: 12px;
+            background: linear-gradient(135deg, #ff4444, #cc0000);
+        }
+        .menu #welcome button.logout-btn:hover { box-shadow: 0 0 15px rgba(255,68,68,0.3); }
+
+        /* ========== 登录弹窗 ========== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+        .modal-box {
+            width: 420px;
+            padding: 36px 32px 28px;
+            border-radius: 16px;
+            background: #1e1e2f;
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .modal-box h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .modal-box .form-row {
+            margin-bottom: 18px;
+        }
+        .modal-box .form-row label {
+            display: block;
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 8px;
+        }
+        .modal-box .form-row input {
+            width: 100%;
+            height: 42px;
+            padding: 0 14px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.06);
+            color: #e0e0e0;
+            box-sizing: border-box;
+        }
+        .modal-box .form-row input:focus {
+            outline: none;
+            border-color: rgba(0,210,255,0.6);
+            background: rgba(255,255,255,0.1);
+        }
+        .modal-box .form-row input::placeholder {
+            color: rgba(255,255,255,0.35);
+        }
+        .modal-btn-login {
+            width: 100%;
+            height: 44px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #00d2ff 0%, #0088ff 100%);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,210,255,0.3);
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+        .modal-btn-login:hover {
+            box-shadow: 0 6px 20px rgba(0,210,255,0.45);
+            transform: translateY(-2px);
+        }
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            width: 30px;
+            height: 30px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            color: #aaa;
+            font-size: 18px;
+            line-height: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .modal-close:hover {
+            background: rgba(255,68,68,0.2);
+            color: #ff4444;
+        }
+
+        /* ========== 主内容区 ========== */
+        .main-content {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px 20px 40px;
+        }
+
+        /* ========== 上传模块 ========== */
+        .upload {
+            width: 100%;
+            padding: 24px;
+            margin-bottom: 24px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+        }
+        .upload-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+        .upload-row {
+            margin-bottom: 16px;
+        }
+        .upload-row:last-child {
+            margin-bottom: 0;
+        }
+
+        /* 单选按钮组 */
+        .radio-group {
+            display: flex;
+            gap: 12px;
+        }
+        .radio-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            color: #bbb;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .radio-label:hover {
+            border-color: rgba(0,210,255,0.5);
+            background: rgba(0,210,255,0.08);
+        }
+        .radio-label.active {
+            border-color: rgba(0,210,255,0.8);
+            color: #00d2ff;
+            background: rgba(0,210,255,0.12);
+        }
+        .radio-label input[type="radio"] {
+            accent-color: #00d2ff;
+            width: 16px;
+            height: 16px;
+        }
+
+        /* 表单标签 */
+        .label-title {
+            display: block;
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        /* 输入框统一样式 */
+        .upload input[type="text"],
+        .upload input[type="file"] {
+            width: 100%;
+            border-radius: 8px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.06);
+            color: #e0e0e0;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        .upload input[type="text"] {
+            height: 42px;
+            padding: 0 14px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .upload input[type="text"]:focus {
+            outline: none;
+            border-color: rgba(0,210,255,0.6);
+            background: rgba(255,255,255,0.1);
+        }
+        .upload input[type="text"]::placeholder {
+            color: rgba(255,255,255,0.35);
+        }
+        .upload input[type="file"] {
+            padding: 10px 0;
+            color: #e0e0e0;
+            display: block;
+        }
+        .upload input[type="file"]::file-selector-button {
+            padding: 8px 16px;
+            margin-right: 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(0,210,255,0.3);
+            background: linear-gradient(135deg, rgba(0,210,255,0.25), rgba(0,210,255,0.15));
+            color: #00d2ff;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload input[type="file"]::file-selector-button:hover {
+            background: linear-gradient(135deg, rgba(0,210,255,0.35), rgba(0,210,255,0.2));
+            box-shadow: 0 0 10px rgba(0,210,255,0.3);
+        }
+
+        /* PDF 文件选择器专用样式 */
+        #pdf_file {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        .input-hint {
+            display: block;
+            font-size: 12px;
+            color: rgba(255,255,255,0.4);
+            margin-top: 6px;
+        }
+
+        /* 下拉框 */
+        .upload select {
+            width: 100%;
+            height: 42px;
+            padding: 0 14px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.06);
+            color: #e0e0e0;
+            cursor: pointer;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        .upload select:focus {
+            outline: none;
+            border-color: rgba(0,210,255,0.6);
+            background: rgba(255,255,255,0.1);
+        }
+        .upload select option {
+            background: #1e1e2f;
+            color: #e0e0e0;
+            padding: 8px;
+        }
+
+        /* 上传按钮 */
+        .btn-upload {
+            width: 100%;
+            height: 44px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #00d2ff 0%, #0088ff 100%);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,210,255,0.3);
+            transition: all 0.2s;
+        }
+        .btn-upload:hover {
+            box-shadow: 0 6px 20px rgba(0,210,255,0.45);
+            transform: translateY(-2px);
+        }
+        .btn-upload:active {
+            transform: translateY(0);
+        }
+
+        /* ========== 视频列表 ========== */
+        .video-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.85);
+            margin-bottom: 16px;
+            padding-left: 4px;
+        }
+        table {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border-radius: 12px;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+        thead td {
+            height: 44px;
+            font-size: 13px;
+            font-weight: 700;
+            color: rgba(0, 210, 255, 0.9);
+            text-align: center;
+            background: rgba(0, 210, 255, 0.08);
+            border-bottom: 1px solid rgba(0, 210, 255, 0.15);
+        }
+        tbody td {
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 13px;
+            color: #ccc;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(0, 210, 255, 0.05); }
+        table td a {
+            color: #00d2ff;
+            text-decoration: none;
+            margin: 0 4px;
+            font-size: 12px;
+            opacity: 0.85;
+            transition: opacity 0.15s;
+        }
+        table td a:hover { text-decoration: underline; opacity: 1; }
+    </style>
+</head>
+<body>
+
+<!-- 顶部导航栏 -->
+<header class="menu">
+    <div class="logo">蜗牛 AI 智慧课堂</div>
+    <div id="welcome">
+        <a href="#" onclick="clickLogin()">点击登录</a>
+    </div>
+</header>
+
+<!-- 登录弹窗 -->
+<div class="modal-overlay" id="loginModal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+        <h2>用户登录</h2>
+        <div class="form-row">
+            <label>用户名</label>
+            <input type="text" id="username" placeholder="请输入用户名"/>
+        </div>
+        <div class="form-row">
+            <label>密码</label>
+            <input type="password" id="password" placeholder="请输入密码"/>
+        </div>
+        <button class="modal-btn-login" onclick="doLogin()">登 录</button>
+    </div>
+</div>
+
+<!-- 主内容区 -->
+<main class="main-content">
+
+    <!-- 上传模块 -->
+    <section class="upload">
+        <div class="upload-title">📤 上传视频</div>
+
+        <!-- 上传方式选择 -->
+        <div class="upload-row">
+            <div class="radio-group">
+                <label class="radio-label active">
+                    <input type="radio" name="upload_type" value="file" checked onclick="toggleUploadType()">
+                    📁 视频文件上传
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="upload_type" value="url" onclick="toggleUploadType()">
+                    🔗 链接上传
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="upload_type" value="pdf" onclick="toggleUploadType()">
+                    📄 PDF文件上传
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="upload_type" value="text" onclick="toggleUploadType()">
+                    📝 文本文件上传
+                </label>
+            </div>
+        </div>
+
+        <!-- 文件上传区域 -->
+        <div class="upload-row" id="file_upload_area">
+            <label class="label-title">选择视频文件</label>
+            <input type="file" id="file" accept="video/*" onchange="fillTitle()"/>
+            <span class="input-hint">支持 MP4、AVI、MOV、MKV 等常见视频格式</span>
+        </div>
+
+        <!-- 链接上传区域 -->
+        <div class="upload-row" id="url_upload_area" style="display:none;">
+            <label class="label-title">视频链接地址</label>
+            <input type="text" id="video_url" placeholder="请输入 B 站或 YouTube 视频链接"/>
+        </div>
+
+        <!-- PDF上传区域 -->
+        <div class="upload-row" id="pdf_upload_area" style="display:none;">
+            <label class="label-title">选择PDF文件</label>
+            <input type="file" id="pdf_file" accept=".pdf" onchange="fillPdfTitle()"/>
+            <span class="input-hint">支持 PDF 格式文件</span>
+        </div>
+
+        <!-- 文本文件上传区域 -->
+        <div class="upload-row" id="text_upload_area" style="display:none;">
+            <label class="label-title">选择文本文件</label>
+            <input type="file" id="text_file" accept=".md,.txt" onchange="fillTextTitle()"/>
+            <span class="input-hint">支持 .md、.txt 格式文件</span>
+        </div>
+
+        <!-- 视频标题 -->
+        <div class="upload-row">
+            <label class="label-title">视频标题</label>
+            <input type="text" id="title" placeholder="请输入视频标题"/>
+        </div>
+
+        <!-- 所属课程 -->
+        <div class="upload-row">
+            <label class="label-title">所属课程</label>
+            <select id="course">
+                <option value="">请选择课程</option>
+                <option value="机器学习">机器学习</option>
+                <option value="计算机视觉">计算机视觉</option>
+                <option value="神经网络">神经网络</option>
+                <option value="自然语言处理">自然语言处理</option>
+                <option value="文本生成">文本生成</option>
+                <option value="大模型原理">大模型原理</option>
+                <option value="智能体开发">智能体开发</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+
+        <!-- 提交按钮 -->
+        <div class="upload-row">
+            <button class="btn-upload" onclick="doUpload(this)">立即上传</button>
+        </div>
+    </section>
+
+    <!-- 视频列表 -->
+    <section>
+        <div class="video-section-title">📚 视频列表</div>
+        <table>
+            <thead>
+            <tr>
+                <td width="5%">编号</td>
+                <td width="28%">标题</td>
+                <td width="7%">时长</td>
+                <td width="12%">关键字</td>
+                <td width="15%">上传时间</td>
+                <td width="8%">考试分数</td>
+                <td width="25%">操作</td>
+            </tr>
+            </thead>
+            <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{result.video.Videos.videoid}}</td>
+                <td style="text-align: left; padding-left: 12px;">{{result.video.Videos.videotitle}}</td>
+                <td>{{(result.video.Videos.duration/60)|round(1)}}分钟</td>
+                <td>{{result.video.Videos.keyword}}</td>
+                <td>{{result.video.Videos.createtime}}</td>
+                <td>
+                    {% if result.user_score is not none %}
+                        <span style="color: #4caf50; font-weight: bold;">{{ result.user_score }}分</span>
+                    {% else %}
+                        <span style="color: #757575;">未考试</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/detail/{{result.video.Videos.videoid}}?token={{token}}">查看详情</a>
+                    <a href="/exam/{{result.video.Videos.videoid}}?token={{token}}">查看考题</a>
+                    {% if result.can_view_answer %}
+                        <a href="/review/{{result.video.Videos.videoid}}?token={{token}}" style="color: #4fc3f7;">查看解析</a>
+                        <a href="/answer/{{result.video.Videos.videoid}}?token={{token}}" style="color: #bdbdbd;">查看答案</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+</main>
+
+<script>
+    /* 显示登录弹窗 */
+    function clickLogin() {
+        document.getElementById('loginModal').classList.add('show');
+    }
+
+    /* 关闭登录弹窗 */
+    function closeLoginModal() {
+        document.getElementById('loginModal').classList.remove('show');
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+    }
+
+    /* 点击遮罩层关闭弹窗 */
+    document.getElementById('loginModal').addEventListener('click', function(e) {
+        if (e.target === this) closeLoginModal();
+    });
+
+    /* 登录处理 */
+    function doLogin() {
+        let username = document.getElementById("username").value;
+        let password = document.getElementById("password").value;
+        if (!username || !password) {
+            alert("请输入用户名和密码");
+            return;
+        }
+        fetch("/login", {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({"username": username, "password": password})
+        })
+        .then(response => response.text())
+        .then(data => {
+            let parsed = JSON.parse(data);
+            if (parsed['message'] === "login-ok") {
+                let token = parsed['token'];
+                let realname = parsed['realname'];
+                localStorage.setItem("token", token);
+                localStorage.setItem("realname", realname);
+                closeLoginModal();
+                updateWelcome(realname);
+                location.href = "/index1?token=" + token;
+            } else {
+                alert("登录失败，请检查用户名和密码");
+            }
+        })
+        .catch(err => console.log('请求失败', err));
+    }
+
+    /* 退出登录 */
+    function doLogout() {
+        localStorage.clear();
+        location.href = "/index1";
+    }
+
+    /* 更新导航栏登录状态 */
+    function updateWelcome(realname) {
+        let name = realname || localStorage.getItem("realname");
+        let token = localStorage.getItem("token");
+        if (token && name) {
+            document.getElementById("welcome").innerHTML =
+                '<span>你好，' + name + '</span>' +
+                '<button class="logout-btn" onclick="doLogout()">退出</button>';
+        }
+    }
+
+    /* 页面加载时检查已登录状态 */
+    (function() {
+        let token = localStorage.getItem("token");
+        let realname = localStorage.getItem("realname");
+        if (token && realname) {
+            updateWelcome(realname);
+        }
+    })();
+</script>
+
+</body>
+</html>

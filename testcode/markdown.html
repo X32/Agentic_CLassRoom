@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Renderer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        #editor {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            resize: vertical;
+        }
+
+        #preview {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            background-color: #fff;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        /* Styling for rendered markdown */
+        #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        #preview h1 {
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+
+        #preview blockquote {
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+            margin: 0;
+        }
+
+        #preview pre {
+            background-color: #f6f8fa;
+            border-radius: 3px;
+            padding: 16px;
+            overflow: auto;
+        }
+
+        #preview code {
+            background-color: rgba(27, 31, 35, 0.05);
+            border-radius: 3px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 85%;
+            padding: 0.2em 0.4em;
+        }
+
+        #preview pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        #preview img {
+            max-width: 100%;
+        }
+
+        #preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        #preview table th, #preview table td {
+            border: 1px solid #dfe2e5;
+            padding: 6px 13px;
+        }
+
+        #preview table tr {
+            background-color: #fff;
+            border-top: 1px solid #c6cbd1;
+        }
+
+        #preview table tr:nth-child(2n) {
+            background-color: #f6f8fa;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.min.css">
+</head>
+<body>
+    <h1>Markdown Renderer</h1>
+
+    <textarea id="editor" placeholder="Write your Markdown here..."></textarea>
+
+    <button id="renderBtn">Render Markdown</button>
+
+    <div id="preview"></div>
+
+    <!-- 引入 markdown-it 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+
+    <!-- 添加常用语言支持 -->
+<!--    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/javascript.min.js"></script>-->
+
+    <script>
+        console.log(hljs);
+        // 初始化markdown-it
+        const md = window.markdownit({
+            html: true,         // 启用HTML标签
+            linkify: true,      // 自动转换URL为链接
+            typographer: true,  // 启用一些语言中立的替换 + 引号美化
+            highlight: function (str, lang) {
+                // 这里可以集成代码高亮插件
+                // return `<pre class="language-${lang}"><code>${str}</code></pre>`;
+                if (lang && hljs.getLanguage(lang)) {
+                    try {
+                        return '<pre class="hljs"><code>' +
+                               hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                               '</code></pre>';
+                    } catch (__) {}
+                }
+
+                // 默认使用默认样式
+                return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+            }
+        });
+
+        // 获取DOM元素
+        const editor = document.getElementById('editor');
+        const renderBtn = document.getElementById('renderBtn');
+        const preview = document.getElementById('preview');
+
+        // 渲染Markdown函数
+        function renderMarkdown() {
+            const markdownText = editor.value;
+            const renderedHtml = md.render(markdownText);
+            preview.innerHTML = renderedHtml;
+        }
+
+        // 绑定按钮点击事件
+        renderBtn.addEventListener('click', renderMarkdown);
+
+        // 添加示例Markdown内容
+        editor.value = `# Welcome to Markdown Renderer
+
+## Features
+
+- Renders Markdown in real-time
+- Supports all common Markdown syntax
+- Based on markdown-it library
+
+## Example Code
+
+\`\`\`javascript
+function hello() {
+    console.log("Hello, Markdown!");
+}
+\`\`\`
+
+## Table Example
+
+| Name | Age | Occupation |
+|------|-----|------------|
+| John | 28  | Developer  |
+| Jane | 32  | Designer   |
+
+> This is a blockquote.
+
+$$
+\\huge x' = \\frac{x-minA}{maxA - minA}
+$$
+
+![Image placeholder](https://woniufile.oss-cn-hangzhou.aliyuncs.com/banner/PBET10banner.com.pc.jpg)
+
+[Visit GitHub](https://github.com)
+`;
+
+        // 初始渲染
+        renderMarkdown();
+    </script>
+</body>
+</html>
