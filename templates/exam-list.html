@@ -215,8 +215,8 @@
             <td>
                 <a href="/exam/{{videoid}}?examset={{es.examset}}">开始考试</a>
                 {% if user_score is not none %}
-                    <a href="/review/{{videoid}}&examset={{es.examset}}" style="color: #4fc3f7;">查看解析</a>
-                    <a href="/answer/{{videoid}}&examset={{es.examset}}" style="color: #bdbdbd;">查看答案</a>
+                    <a href="/review/{{videoid}}?examset={{es.examset}}" style="color: #4fc3f7;">查看解析</a>
+                    <a href="/answer/{{videoid}}?examset={{es.examset}}" style="color: #bdbdbd;">查看答案</a>
                 {% endif %}
             </td>
         </tr>
