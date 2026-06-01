@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 智慧课堂 - 首页</title>
-    <script src="/static/script.js"></script>
+    <script src="/static/script.js?v=4"></script>
     <script>
         // 确保 toggleUploadType 在页面内可用
         function toggleUploadType() {
@@ -529,12 +529,11 @@
             <thead>
             <tr>
                 <td width="5%">编号</td>
-                <td width="28%">标题</td>
+                <td width="30%">标题</td>
                 <td width="7%">时长</td>
                 <td width="12%">关键字</td>
-                <td width="15%">上传时间</td>
-                <td width="8%">考试分数</td>
-                <td width="25%">操作</td>
+                <td width="16%">上传时间</td>
+                <td width="30%">操作</td>
             </tr>
             </thead>
             <tbody>
@@ -546,19 +545,8 @@
                 <td>{{result.video.Videos.keyword}}</td>
                 <td>{{result.video.Videos.createtime}}</td>
                 <td>
-                    {% if result.user_score is not none %}
-                        <span style="color: #4caf50; font-weight: bold;">{{ result.user_score }}分</span>
-                    {% else %}
-                        <span style="color: #757575;">未考试</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="/detail/{{result.video.Videos.videoid}}?token={{token}}">查看详情</a>
-                    <a href="/exam-list/{{result.video.Videos.videoid}}?token={{token}}">查看考题</a>
-                    {% if result.can_view_answer %}
-                        <a href="/review/{{result.video.Videos.videoid}}?token={{token}}" style="color: #4fc3f7;">查看解析</a>
-                        <a href="/answer/{{result.video.Videos.videoid}}?token={{token}}" style="color: #bdbdbd;">查看答案</a>
-                    {% endif %}
+                    <a href="/detail/{{result.video.Videos.videoid}}">查看详情</a>
+                    <a href="/exam-list/{{result.video.Videos.videoid}}">查看考题</a>
                 </td>
             </tr>
             {% endfor %}
@@ -609,7 +597,7 @@
                 localStorage.setItem("realname", realname);
                 closeLoginModal();
                 updateWelcome(realname);
-                location.href = "/index1?token=" + token;
+                location.href = "/";
             } else {
                 alert("登录失败，请检查用户名和密码");
             }

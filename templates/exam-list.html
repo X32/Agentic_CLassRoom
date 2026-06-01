@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>考题列表 - AI 智慧课堂</title>
-    <script src="/static/script.js"></script>
+    <script src="/static/script.js?v=4"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -192,22 +192,31 @@
         <thead>
         <tr>
             <td width="15%">题集编号</td>
-            <td width="20%">题目数量</td>
-            <td width="25%">生成时间</td>
-            <td width="40%">操作</td>
+            <td width="15%">题目数量</td>
+            <td width="22%">生成时间</td>
+            <td width="13%">考试得分</td>
+            <td width="35%">操作</td>
         </tr>
         </thead>
         <tbody>
         {% for es in examsets %}
+        {% set user_score = user_scores.get(es.examset) %}
         <tr>
             <td style="font-weight: 600; color: #00d2ff;">第 {{es.examset}} 套题</td>
             <td>{{es.count}} 题</td>
             <td>{{es.createtime}}</td>
             <td>
+                {% if user_score is not none %}
+                    <span style="color: #4caf50; font-weight: bold;">{{ user_score }} 分</span>
+                {% else %}
+                    <span style="color: #757575;">未考试</span>
+                {% endif %}
+            </td>
+            <td>
                 <a href="/exam/{{videoid}}?examset={{es.examset}}">开始考试</a>
-                {% if token %}
-                <a href="/review/{{videoid}}?token={{token}}&examset={{es.examset}}" style="color: #4fc3f7;">查看解析</a>
-                <a href="/answer/{{videoid}}?token={{token}}&examset={{es.examset}}" style="color: #bdbdbd;">查看答案</a>
+                {% if user_score is not none %}
+                    <a href="/review/{{videoid}}&examset={{es.examset}}" style="color: #4fc3f7;">查看解析</a>
+                    <a href="/answer/{{videoid}}&examset={{es.examset}}" style="color: #bdbdbd;">查看答案</a>
                 {% endif %}
             </td>
         </tr>

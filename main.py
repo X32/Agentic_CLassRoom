@@ -1,13 +1,24 @@
-import uvicorn, json, os
-from datetime import datetime
+import uvicorn, json, os, logging
+from datetime import datetime, timedelta
+from logging.handlers import TimedRotatingFileHandler
 from fastapi import FastAPI, Request, Body, UploadFile, Form, File
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from model import *
 from sqlmodel import Session, select, desc, func
 from module import *
 from openai import OpenAI
+
+# 日志配置：按天切割，保留3天
+os.makedirs("logs", exist_ok=True)
+file_handler = TimedRotatingFileHandler("logs/app.log", when="midnight", interval=1, backupCount=3, encoding="utf-8")
+file_handler.suffix = "%Y-%m-%d.log"
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -44,26 +55,36 @@ def login(logins: dict = Body()):
     with Session(engine) as session:
         sql = select(Users).where(Users.username == username)
         users = session.execute(sql).mappings().all()
-        # 如果找到用户名且密码相等，则登录验证通过
         if len(users) == 1:
             if users[0].Users.password == password:
                 userid = str(users[0].Users.userid)
                 realname = users[0].Users.realname
                 role = users[0].Users.role
                 expiredTime = int(time.time()) + 60*60*24
-                # 将用户基本信息以 | 分隔，加上有效期一起进行加密，构成一个加密解密型的 Token
                 token = aes_encrypt(f"{username}|{userid}|{role}|{realname}|{expiredTime}")
-                return {"message": "login-ok", "token": token, "realname": realname}
+                logger.info(f"登录成功: username={username}, realname={realname}, role={role}")
+                response = JSONResponse({"message": "login-ok", "token": token, "realname": realname})
+                response.set_cookie("token", token, max_age=86400)
+                return response
             else:
+                logger.warning(f"登录失败(密码错误): username={username}")
                 return {"message": "login-fail"}
         else:
+            logger.warning(f"登录失败(用户不存在): username={username}")
             return {"message": "user-not-exist"}
 
 @app.post("/checklogin")
-def checklogin(token: dict = Body()):
-    token = token["token"]
-    message = check_token(token)
-    return message
+def checklogin(request: Request):
+    token = request.cookies.get("token")
+    if not token:
+        return {"message": "No-Token"}
+    return check_token(token)
+
+@app.post("/logout")
+def logout():
+    response = JSONResponse({"message": "logout-ok"})
+    response.delete_cookie("token")
+    return response
 
 # 上传视频并进行后续处理（文件上传）
 @app.post("/upload")
@@ -111,8 +132,9 @@ def upload(title: str = Form(), course: str = Form(), file: UploadFile = File())
                       xmindjson=json.dumps(xmind_json, ensure_ascii=False), createtime=datetime.now())
         session.add(video)
         session.commit()
-        session.refresh(video)    # 此处需要刷新一下才能获取到新增的 videoid
+        session.refresh(video)
 
+    logger.info(f"视频上传完成: title={title}, course={course}, videoid={video.videoid}")
     insert_exam(examtext, video.videoid)
 
     # 生成关键帧
@@ -288,7 +310,8 @@ def upload_pdf(title: str = Form(), course: str = Form(), file: UploadFile = Fil
 
 
 @app.get("/exam-list/{videoid}")
-def exam_list(request: Request, videoid, token: str = None):
+def exam_list(request: Request, videoid):
+    token = request.cookies.get("token")
     with Session(engine) as session:
         sql = select(Exams.examset, func.count(Exams.examid).label('count'),
                      func.min(Exams.createtime).label('createtime')).where(
@@ -296,8 +319,20 @@ def exam_list(request: Request, videoid, token: str = None):
         ).group_by(Exams.examset).order_by(Exams.examset)
         examsets = session.execute(sql).all()
 
+        user_scores = {}
+        if token:
+            token_json = check_token(token)
+            if token_json.get('message') == 'Token-OK':
+                userid = token_json.get('userid')
+                sql = select(Scores.examset, func.sum(Scores.score).label('total_score')).where(
+                    Scores.userid == userid, Scores.videoid == videoid
+                ).group_by(Scores.examset)
+                scores = session.execute(sql).all()
+                for s in scores:
+                    user_scores[s.examset] = s.total_score
+
     return templates.TemplateResponse(request=request, name="exam-list.html",
-        context={"videoid": videoid, "examsets": examsets, "token": token})
+        context={"videoid": videoid, "examsets": examsets, "user_scores": user_scores})
 
 
 @app.post("/gen-exam/{videoid}")
@@ -320,6 +355,7 @@ def gen_new_exam(videoid):
 
     examtext = gen_exam(content, existing_questions)
     insert_exam(examtext, videoid, examset=new_examset)
+    logger.info(f"生成新考题: videoid={videoid}, examset={new_examset}")
     return {"message": "ok", "examset": new_examset}
 
 
@@ -336,9 +372,10 @@ def exam(request: Request, videoid, examset: int = 1):
         return templates.TemplateResponse(request=request, name="exam.html",
                 context={"exams": exams, "examset": examset})
 
-@app.post("/exam/submit/{videoid}/{token}")
-def exam_submit(videoid, token, answers: dict = Body()):
-    if token is None:
+@app.post("/exam/submit/{videoid}")
+def exam_submit(request: Request, videoid, answers: dict = Body()):
+    token = request.cookies.get("token")
+    if not token:
         return "Need-Login"
 
     token_json = check_token(token)
@@ -347,14 +384,19 @@ def exam_submit(videoid, token, answers: dict = Body()):
     elif token_json['role'] != 'student':
         return "Not-Student"
 
-    userid = check_token(token)['userid']
-    examset = answers.get("examset", 1)
+    userid = token_json['userid']
+    examset = int(answers.get("examset", 1))
 
     with Session(engine) as session:
-        # 按 userid + videoid + examset 去重
-        sql = select(Scores).where(Scores.userid == userid, Scores.videoid == videoid, Scores.examset == examset)
-        if len(session.execute(sql).all()) > 0:
-            return "Already-Exam"
+        # 删除该用户这套题的旧成绩，允许重复刷题
+        session.exec(
+            Scores.__table__.delete().where(
+                Scores.userid == userid,
+                Scores.videoid == videoid,
+                Scores.examset == examset
+            )
+        )
+        session.commit()
 
         score_list = []
 
@@ -383,7 +425,9 @@ def exam_submit(videoid, token, answers: dict = Body()):
                         insert_score(userid, videoid, examid, answer, score, examset)
                         score_list.append(score)
 
-        return sum(score_list)
+        total = sum(score_list)
+        logger.info(f"考试提交: userid={userid}, videoid={videoid}, examset={examset}, score={total}")
+        return total
 
 
 # 流式聊天接口
@@ -412,62 +456,36 @@ def stream_chat(question: dict = Body()):
 
 
 @app.get("/")
-def index(request: Request, token: str = None):
+def index(request: Request):
+    token = request.cookies.get("token")
     with Session(engine) as session:
         sql = select(Videos).order_by(desc(Videos.videoid))
         videos = session.execute(sql).mappings().all()
 
-    # 如果传递了 token，查询每个视频的用户得分
-    user_scores = {}
-    userid = None
-    if token:
-        token_json = check_token(token)
-        if token_json.get('message') == 'Token-OK':
-            userid = token_json.get('userid')
-            sql = select(Scores.userid, Scores.videoid, func.sum(Scores.score).label('total_score')).where(Scores.userid == userid).group_by(Scores.userid, Scores.videoid)
-            scores = session.execute(sql).all()
-            for s in scores:
-                user_scores[s.videoid] = s.total_score
-
     results = []
     for video in videos:
-        videoid = video.Videos.videoid
-        score = user_scores.get(videoid, None)
-        can_view_answer = score is not None
-        results.append({"video": video, "user_score": score, "can_view_answer": can_view_answer, "userid": userid})
+        results.append({"video": video})
 
-    return templates.TemplateResponse(request=request, name="index.html", context={"results": results, "token": token})
+    return templates.TemplateResponse(request=request, name="index.html", context={"results": results})
 
 
 @app.get("/index1")
-def index1(request: Request, token: str = None):
+def index1(request: Request):
+    token = request.cookies.get("token")
     with Session(engine) as session:
         sql = select(Videos).order_by(desc(Videos.videoid))
         videos = session.execute(sql).mappings().all()
 
-    user_scores = {}
-    userid = None
-    if token:
-        token_json = check_token(token)
-        if token_json.get('message') == 'Token-OK':
-            userid = token_json.get('userid')
-            sql = select(Scores.userid, Scores.videoid, func.sum(Scores.score).label('total_score')).where(Scores.userid == userid).group_by(Scores.userid, Scores.videoid)
-            scores = session.execute(sql).all()
-            for s in scores:
-                user_scores[s.videoid] = s.total_score
-
     results = []
     for video in videos:
-        videoid = video.Videos.videoid
-        score = user_scores.get(videoid, None)
-        can_view_answer = score is not None
-        results.append({"video": video, "user_score": score, "can_view_answer": can_view_answer, "userid": userid})
+        results.append({"video": video})
 
-    return templates.TemplateResponse(request=request, name="index1.html", context={"results": results, "token": token})
+    return templates.TemplateResponse(request=request, name="index1.html", context={"results": results})
 
 
 @app.get("/answer/{videoid}")
-def answer(request: Request, videoid, token: str = None, examset: int = 1):
+def answer(request: Request, videoid, examset: int = 1):
+    token = request.cookies.get("token")
     if not token:
         return templates.TemplateResponse(request=request, name="error.html", context={"message": "请先登录"})
 
@@ -510,7 +528,8 @@ def answer(request: Request, videoid, token: str = None, examset: int = 1):
 
 
 @app.get("/review/{videoid}")
-def review(request: Request, videoid, token: str = None, examset: int = 1):
+def review(request: Request, videoid, examset: int = 1):
+    token = request.cookies.get("token")
     if not token:
         return templates.TemplateResponse(request=request, name="error.html", context={"message": "请先登录"})
 

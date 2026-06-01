@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>查看答案</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="/static/script.js"></script>
+    <script src="/static/script.js?v=4"></script>
     <script>
         // 页面加载时，从 localStorage 获取 token 并添加到 URL
         document.addEventListener("DOMContentLoaded", function () {
@@ -12,11 +12,7 @@
 
             // 更新调试信息
             document.getElementById("token-ls").textContent = token ? token.substring(0, 50) + "..." : "不存在";
-            document.getElementById("token-url").textContent = new URLSearchParams(location.search).get("token") ? "存在" : "不存在";
-
-            if (token && !location.search.includes("token=")) {
-                location.href = location.pathname + "?token=" + token;
-            }
+            document.getElementById("token-url").textContent = "Cookie方式";
         });
     </script>
 </head>

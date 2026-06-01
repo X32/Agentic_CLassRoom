@@ -1,4 +1,4 @@
-import json, os, dashscope, requests
+import json, os, dashscope, requests, logging
 import time
 import subprocess
 import cv2, numpy as np
