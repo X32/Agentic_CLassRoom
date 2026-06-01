@@ -55,7 +55,7 @@
         </div>
         {% endif %}
         {% endfor %}
-        <div class="submit"><button id="submit" onclick="doExam('{{exams[0].Exams.videoid}}')">提交试卷</button></div>
+        <div class="submit"><button id="submit" onclick="doExam('{{exams[0].Exams.videoid}}', {{examset}})">提交试卷</button></div>
     </div>
 </body>
 </html>

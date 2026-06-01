@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>考题列表 - AI 智慧课堂</title>
+    <script src="/static/script.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+
+        .menu {
+            height: 60px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            padding: 0 28px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .menu .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #00d2ff;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+        }
+        .menu #welcome {
+            margin-left: auto;
+            font-size: 14px;
+            color: #00d2ff;
+        }
+        .menu #welcome a { color: #00d2ff; text-decoration: none; cursor: pointer; }
+        .menu #welcome a:hover { text-decoration: underline; }
+        .menu #welcome button {
+            padding: 6px 16px;
+            height: 34px;
+            border: none;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #00d2ff, #0099cc);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .menu #welcome button:hover { box-shadow: 0 0 15px rgba(0,210,255,0.3); }
+
+        .main-content {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 20px 40px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .page-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .page-title span {
+            color: #00d2ff;
+            font-size: 14px;
+            font-weight: 400;
+            margin-left: 12px;
+        }
+
+        .btn-gen {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #00d2ff 0%, #0088ff 100%);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,210,255,0.3);
+            transition: all 0.2s;
+        }
+        .btn-gen:hover {
+            box-shadow: 0 6px 20px rgba(0,210,255,0.45);
+            transform: translateY(-2px);
+        }
+        .btn-gen:disabled {
+            background: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn-back {
+            padding: 8px 20px;
+            border: 1px solid rgba(0,210,255,0.3);
+            border-radius: 6px;
+            background: transparent;
+            color: #00d2ff;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-back:hover {
+            background: rgba(0,210,255,0.1);
+        }
+
+        table {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border-radius: 12px;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+        thead td {
+            height: 44px;
+            font-size: 13px;
+            font-weight: 700;
+            color: rgba(0, 210, 255, 0.9);
+            text-align: center;
+            background: rgba(0, 210, 255, 0.08);
+            border-bottom: 1px solid rgba(0, 210, 255, 0.15);
+        }
+        tbody td {
+            padding: 14px 8px;
+            text-align: center;
+            font-size: 14px;
+            color: #ccc;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(0, 210, 255, 0.05); }
+        table td a {
+            color: #00d2ff;
+            text-decoration: none;
+            margin: 0 6px;
+            font-size: 13px;
+            opacity: 0.85;
+            transition: opacity 0.15s;
+        }
+        table td a:hover { text-decoration: underline; opacity: 1; }
+
+        .empty-tip {
+            text-align: center;
+            padding: 48px 0;
+            color: rgba(255,255,255,0.4);
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<header class="menu">
+    <div class="logo">蜗牛 AI 智慧课堂</div>
+    <div id="welcome">
+        <a href="#" onclick="clickLogin()">点击登录</a>
+    </div>
+</header>
+
+<main class="main-content">
+    <div class="page-header">
+        <div>
+            <div class="page-title">
+                考题列表
+                <span>课程编号：{{videoid}}</span>
+            </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <a class="btn-back" href="/">&larr; 返回首页</a>
+            <button class="btn-gen" id="btn-gen" onclick="generateExam()">生成新考题</button>
+        </div>
+    </div>
+
+    {% if examsets|length > 0 %}
+    <table>
+        <thead>
+        <tr>
+            <td width="15%">题集编号</td>
+            <td width="20%">题目数量</td>
+            <td width="25%">生成时间</td>
+            <td width="40%">操作</td>
+        </tr>
+        </thead>
+        <tbody>
+        {% for es in examsets %}
+        <tr>
+            <td style="font-weight: 600; color: #00d2ff;">第 {{es.examset}} 套题</td>
+            <td>{{es.count}} 题</td>
+            <td>{{es.createtime}}</td>
+            <td>
+                <a href="/exam/{{videoid}}?examset={{es.examset}}">开始考试</a>
+                {% if token %}
+                <a href="/review/{{videoid}}?token={{token}}&examset={{es.examset}}" style="color: #4fc3f7;">查看解析</a>
+                <a href="/answer/{{videoid}}?token={{token}}&examset={{es.examset}}" style="color: #bdbdbd;">查看答案</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-tip">暂无考题，点击上方"生成新考题"按钮创建</div>
+    {% endif %}
+</main>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        if (localStorage.getItem("token") != null) {
+            var welcome = document.getElementById("welcome");
+            welcome.innerHTML = "你好，" + localStorage.getItem("realname") +
+                "&nbsp;&nbsp;<button onclick='doLogout()'>退出</button>";
+        }
+    });
+
+    function clickLogin() {
+        var username = prompt("请输入用户名：");
+        if (!username) return;
+        var password = prompt("请输入密码：");
+        if (!password) return;
+        fetch("/login", {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({"username": username, "password": password})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.message === "login-ok") {
+                localStorage.setItem("token", data.token);
+                localStorage.setItem("realname", data.realname);
+                location.reload();
+            } else {
+                alert("登录失败");
+            }
+        });
+    }
+
+    function generateExam() {
+        var btn = document.getElementById("btn-gen");
+        btn.disabled = true;
+        btn.textContent = "正在生成考题...";
+
+        fetch("/gen-exam/{{videoid}}", { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.message === "ok") {
+                location.reload();
+            } else {
+                alert("生成失败，请重试");
+                btn.disabled = false;
+                btn.textContent = "生成新考题";
+            }
+        })
+        .catch(function(err) {
+            alert("请求失败: " + err);
+            btn.disabled = false;
+            btn.textContent = "生成新考题";
+        });
+    }
+</script>
+
+</body>
+</html>

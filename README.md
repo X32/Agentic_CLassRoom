@@ -20,24 +20,24 @@ AI 课程学习平台，基于阿里云通义千问（Qwen）对教学视频进�
 
 ## 技术栈
 
-| 类别 | 技术 |
-|------|------|
-| 后端 | FastAPI + Uvicorn |
-| 数据库 | MySQL (SQLModel ORM) |
+| 类别      | 技术                               |
+| --------- | ---------------------------------- |
+| 后端      | FastAPI + Uvicorn                  |
+| 数据库    | MySQL (SQLModel ORM)               |
 | AI 大模型 | 阿里云通义千问 Qwen-plus、Qwen3-VL |
-| 语音识别 | faster-whisper (local) |
-| PDF 识别 | PyMuPDF、marker-pdf、Qwen-VL |
-| 思维导图 | xmind |
-| 视频处理 | moviepy、OpenCV |
-| 前端 | Jinja2 Templates + vanilla JS |
-| 安全 | PyCryptodome (AES-CBC Token) |
+| 语音识别  | faster-whisper (local)             |
+| PDF 识别  | PyMuPDF、marker-pdf、Qwen-VL       |
+| 思维导图  | xmind                              |
+| 视频处理  | moviepy、OpenCV                    |
+| 前端      | Jinja2 Templates + vanilla JS      |
+| 安全      | PyCryptodome (AES-CBC Token)       |
 
 ## 快速开始
 
 ### 1. 环境准备
 
 ```bash
-cd chapter07
+
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -104,21 +104,21 @@ chapter07/
 
 ## API 接口
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/` | 首页，显示所有课程 |
-| GET | `/detail/{videoid}` | 课程详情（视频、笔记、脑图、关键帧） |
-| GET | `/exam/{videoid}` | 考试页面 |
-| POST | `/login` | 用户登录，返回 AES Token |
-| POST | `/checklogin` | 验证 Token |
-| POST | `/upload` | 上传视频文件 |
-| POST | `/upload-url` | 通过 URL 下载视频 |
-| POST | `/upload-text` | 上传 md/txt 文本 |
-| POST | `/upload-pdf` | 上传 PDF 文件 |
-| POST | `/exam/submit/{videoid}/{token}` | 提交考试答案 |
-| POST | `/stream` | 流式 AI 聊天 |
-| GET | `/answer/{videoid}` | 查看答案（需已考试） |
-| GET | `/review/{videoid}` | 考试对比回顾 |
+| 方法 | 路径                               | 说明                                 |
+| ---- | ---------------------------------- | ------------------------------------ |
+| GET  | `/`                              | 首页，显示所有课程                   |
+| GET  | `/detail/{videoid}`              | 课程详情（视频、笔记、脑图、关键帧） |
+| GET  | `/exam/{videoid}`                | 考试页面                             |
+| POST | `/login`                         | 用户登录，返回 AES Token             |
+| POST | `/checklogin`                    | 验证 Token                           |
+| POST | `/upload`                        | 上传视频文件                         |
+| POST | `/upload-url`                    | 通过 URL 下载视频                    |
+| POST | `/upload-text`                   | 上传 md/txt 文本                     |
+| POST | `/upload-pdf`                    | 上传 PDF 文件                        |
+| POST | `/exam/submit/{videoid}/{token}` | 提交考试答案                         |
+| POST | `/stream`                        | 流式 AI 聊天                         |
+| GET  | `/answer/{videoid}`              | 查看答案（需已考试）                 |
+| GET  | `/review/{videoid}`              | 考试对比回顾                         |
 
 ## 安全注意
 

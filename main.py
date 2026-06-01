@@ -287,72 +287,103 @@ def upload_pdf(title: str = Form(), course: str = Form(), file: UploadFile = Fil
     return "Upload-Complete"
 
 
+@app.get("/exam-list/{videoid}")
+def exam_list(request: Request, videoid, token: str = None):
+    with Session(engine) as session:
+        sql = select(Exams.examset, func.count(Exams.examid).label('count'),
+                     func.min(Exams.createtime).label('createtime')).where(
+            Exams.videoid == videoid
+        ).group_by(Exams.examset).order_by(Exams.examset)
+        examsets = session.execute(sql).all()
+
+    return templates.TemplateResponse(request=request, name="exam-list.html",
+        context={"videoid": videoid, "examsets": examsets, "token": token})
+
+
+@app.post("/gen-exam/{videoid}")
+def gen_new_exam(videoid):
+    with Session(engine) as session:
+        video = session.get(Videos, videoid)
+        content = video.content
+
+        # 查询当前最大 examset
+        max_set = session.exec(
+            select(func.max(Exams.examset)).where(Exams.videoid == videoid)
+        ).one() or 0
+        new_examset = max_set + 1
+
+        # 获取已有题目用于去重
+        existing = session.exec(
+            select(Exams.question).where(Exams.videoid == videoid)
+        ).all()
+        existing_questions = "\n".join(existing)
+
+    examtext = gen_exam(content, existing_questions)
+    insert_exam(examtext, videoid, examset=new_examset)
+    return {"message": "ok", "examset": new_examset}
+
+
 @app.get("/exam/{videoid}")
-def exam(request: Request, videoid):
+def exam(request: Request, videoid, examset: int = 1):
     with (Session(engine) as session):
-        # 查询跟视频关联的考题
-        sql = select(Exams).where(Exams.videoid==videoid)
+        sql = select(Exams).where(Exams.videoid == videoid, Exams.examset == examset)
         exams = session.execute(sql).mappings().all()
 
-        # 解析 exams 表中的 options，并且将其单独渲染给前端页面
-        for exam in exams:
-            if exam.Exams.options is not None:
-                # 此处使用 eval，而不是 json.loads，原因是什么？
-                exam.Exams.options = eval(exam.Exams.options)
+        for exam_item in exams:
+            if exam_item.Exams.options is not None:
+                exam_item.Exams.options = eval(exam_item.Exams.options)
 
         return templates.TemplateResponse(request=request, name="exam.html",
-                context={"exams": exams})
+                context={"exams": exams, "examset": examset})
 
 @app.post("/exam/submit/{videoid}/{token}")
 def exam_submit(videoid, token, answers: dict = Body()):
-    # 判断用户是否已经登录，未登录的情况下，无法传递有效的 token
     if token is None:
         return "Need-Login"
 
-    # 即使传递了一个无效 token，此处检查也无法通过，因为无法对 token 进行解密
     token_json = check_token(token)
     if token_json['message'] != "Token-OK":
         return "Token-Fail"
     elif token_json['role'] != 'student':
         return "Not-Student"
 
-    userid = check_token(token)['userid']   # 解密 token 并读取用户 ID
+    userid = check_token(token)['userid']
+    examset = answers.get("examset", 1)
 
     with Session(engine) as session:
-        # 如果用户已经提交过考试结果，则不能继续提交
-        sql = select(Scores).where(Scores.userid == userid).where(Scores.videoid == videoid)
+        # 按 userid + videoid + examset 去重
+        sql = select(Scores).where(Scores.userid == userid, Scores.videoid == videoid, Scores.examset == examset)
         if len(session.execute(sql).all()) > 0:
             return "Already-Exam"
 
-        score_list = []   # 用于记录每道题目的分数，以统计总分
+        score_list = []
 
-        # 遍历每一个考题的答案
         for k, v in answers.items():
-            sql = select(Exams).where(Exams.videoid == videoid)
+            if k in ("examset",):
+                continue
+            sql = select(Exams).where(Exams.videoid == videoid, Exams.examset == examset)
             exams = session.execute(sql).mappings().all()
-            # 从 exams 表中选取标准答案
             for exam in exams:
-                if k == "choices":   # 单选题评分，只是对比即可
-                    for choice in v:  # 提取到每一道题的 ID 和答案
+                if k == "choices":
+                    for choice in v:
                         examid = choice.split("-")[1]
                         answer = choice.split("-")[2]
-                        # 如果与 exams 表中的 ID 相等，则说明是同一题，再比较答案
                         if (exam.Exams.examid == int(examid)):
                             if (exam.Exams.answer == answer):
-                                insert_score(userid, videoid, examid, answer, 5)
+                                insert_score(userid, videoid, examid, answer, 5, examset)
                                 score_list.append(5)
                             else:
-                                insert_score(userid, videoid, examid, answer, 0)
+                                insert_score(userid, videoid, examid, answer, 0, examset)
                                 score_list.append(0)
                 else:
                     examid = k.split("-")[1]
-                    answer = v    # 简答题直接通过 AI 判定分数
+                    answer = v
                     if (exam.Exams.examid == int(examid)):
                         score = ai_score(answer, userid, examid, exam.Exams.question, exam.Exams.answer)
-                        insert_score(userid, videoid, examid, answer, score)
+                        insert_score(userid, videoid, examid, answer, score, examset)
                         score_list.append(score)
 
-        return sum(score_list)   # 计算总分并响应给前端
+        return sum(score_list)
 
 
 # 流式聊天接口
@@ -393,18 +424,15 @@ def index(request: Request, token: str = None):
         token_json = check_token(token)
         if token_json.get('message') == 'Token-OK':
             userid = token_json.get('userid')
-            # 查询该用户的所有分数记录
             sql = select(Scores.userid, Scores.videoid, func.sum(Scores.score).label('total_score')).where(Scores.userid == userid).group_by(Scores.userid, Scores.videoid)
             scores = session.execute(sql).all()
             for s in scores:
                 user_scores[s.videoid] = s.total_score
 
-    # 将分数信息添加到视频中
     results = []
     for video in videos:
         videoid = video.Videos.videoid
         score = user_scores.get(videoid, None)
-        # 如果有分数，说明可以查看答案
         can_view_answer = score is not None
         results.append({"video": video, "user_score": score, "can_view_answer": can_view_answer, "userid": userid})
 
@@ -439,8 +467,7 @@ def index1(request: Request, token: str = None):
 
 
 @app.get("/answer/{videoid}")
-def answer(request: Request, videoid, token: str = None):
-    # 检查用户是否登录
+def answer(request: Request, videoid, token: str = None, examset: int = 1):
     if not token:
         return templates.TemplateResponse(request=request, name="error.html", context={"message": "请先登录"})
 
@@ -451,19 +478,15 @@ def answer(request: Request, videoid, token: str = None):
     userid = token_json.get('userid')
 
     with Session(engine) as session:
-        # 查询用户是否有该视频的分数
-        sql = select(func.sum(Scores.score)).where(Scores.userid == userid).where(Scores.videoid == videoid)
+        sql = select(func.sum(Scores.score)).where(Scores.userid == userid, Scores.videoid == videoid, Scores.examset == examset)
         total_score = session.execute(sql).scalar()
 
         if total_score is None:
-            # 没有分数，不能查看答案
-            return templates.TemplateResponse(request=request, name="error.html", context={"message": "你还没有参加该视频的考试，无法查看答案"})
+            return templates.TemplateResponse(request=request, name="error.html", context={"message": "你还没有参加该套考题的考试，无法查看答案"})
 
-        # 查询该视频的所有考题和答案
-        sql = select(Exams).where(Exams.videoid == videoid).order_by(Exams.examid)
+        sql = select(Exams).where(Exams.videoid == videoid, Exams.examset == examset).order_by(Exams.examid)
         exams = session.execute(sql).mappings().all()
 
-        # 解析选择题的 options 字段（从字符串转为字典），存储到单独的字典中
         exam_options = {}
         for exam in exams:
             examid = exam.Exams.examid
@@ -472,8 +495,7 @@ def answer(request: Request, videoid, token: str = None):
             else:
                 exam_options[examid] = None
 
-        # 查询用户的答案
-        sql = select(Scores).where(Scores.userid == userid).where(Scores.videoid == videoid)
+        sql = select(Scores).where(Scores.userid == userid, Scores.videoid == videoid, Scores.examset == examset)
         user_answers = session.execute(sql).mappings().all()
         user_answer_dict = {a.Scores.examid: a.Scores.answer for a in user_answers}
 
@@ -482,13 +504,13 @@ def answer(request: Request, videoid, token: str = None):
         "exams": exams,
         "exam_options": exam_options,
         "user_answers": user_answer_dict,
-        "total_score": total_score
+        "total_score": total_score,
+        "examset": examset
     })
 
 
 @app.get("/review/{videoid}")
-def review(request: Request, videoid, token: str = None):
-    # 检查用户是否登录
+def review(request: Request, videoid, token: str = None, examset: int = 1):
     if not token:
         return templates.TemplateResponse(request=request, name="error.html", context={"message": "请先登录"})
 
@@ -499,18 +521,15 @@ def review(request: Request, videoid, token: str = None):
     userid = token_json.get('userid')
 
     with Session(engine) as session:
-        # 查询用户是否有该视频的分数
-        sql = select(func.sum(Scores.score)).where(Scores.userid == userid).where(Scores.videoid == videoid)
+        sql = select(func.sum(Scores.score)).where(Scores.userid == userid, Scores.videoid == videoid, Scores.examset == examset)
         total_score = session.execute(sql).scalar()
 
         if total_score is None:
-            return templates.TemplateResponse(request=request, name="error.html", context={"message": "你还没有参加该视频的考试，无法查看对比"})
+            return templates.TemplateResponse(request=request, name="error.html", context={"message": "你还没有参加该套考题的考试，无法查看对比"})
 
-        # 查询该视频的所有考题
-        sql = select(Exams).where(Exams.videoid == videoid).order_by(Exams.examid)
+        sql = select(Exams).where(Exams.videoid == videoid, Exams.examset == examset).order_by(Exams.examid)
         exams = session.execute(sql).mappings().all()
 
-        # 解析选择题的 options 字段
         exam_options = {}
         for exam in exams:
             examid = exam.Exams.examid
@@ -519,10 +538,8 @@ def review(request: Request, videoid, token: str = None):
             else:
                 exam_options[examid] = None
 
-        # 查询用户的答案和得分
-        sql = select(Scores).where(Scores.userid == userid).where(Scores.videoid == videoid)
+        sql = select(Scores).where(Scores.userid == userid, Scores.videoid == videoid, Scores.examset == examset)
         user_answers = session.execute(sql).mappings().all()
-        # 构建 {examid: {answer: xxx, score: xxx}} 字典
         user_result_dict = {}
         for a in user_answers:
             user_result_dict[a.Scores.examid] = {
@@ -530,7 +547,6 @@ def review(request: Request, videoid, token: str = None):
                 "score": a.Scores.score
             }
 
-        # 计算总分和正确题数
         correct_count = sum(1 for a in user_answers if a.Scores.score > 0)
 
     return templates.TemplateResponse(request=request, name="review.html", context={
@@ -540,7 +556,8 @@ def review(request: Request, videoid, token: str = None):
         "user_result_dict": user_result_dict,
         "total_score": total_score,
         "correct_count": correct_count,
-        "total_count": len(exams)
+        "total_count": len(exams),
+        "examset": examset
     })
 
 

@@ -1,4 +1,4 @@
-import json, os, dashscope, requests, xmind
+import json, os, dashscope, requests
 import time
 import subprocess
 import cv2, numpy as np
@@ -368,29 +368,36 @@ def gen_xmind_json(text):
         text = text[start:end+1]
     return text
 
-# 利用xmind生成思维导图文件
+# 利用 zipfile 生成新版 XMind Zen 格式的思维导图文件（content.json）
 def write_xmind_file(xmind_json, filename):
-    # 定义函数用于递归读取和生成
-    def add_node(parent, data):
-        if isinstance(data, dict):
-            parent.setTitle(data['topic'])
-            # 如果存在children节点，则递归读取
-            if 'children' in data:
-                for child in data['children']:
-                    topic = parent.addSubTopic()
-                    add_node(topic, child)
+    import zipfile, uuid
 
-    # 定义要生成的思维导图文件路径
-    filename = f"static/xminds/{filename.split('.')[0]}.xmind"
-    workbook = xmind.load(filename)
-    sheet = workbook.getPrimarySheet()   # 获取第一个Sheet
-    sheet.setTitle(xmind_json['meta']['name'])   # 设置Sheet的名称
+    # 将 jsmind node_tree 格式转换为 XMind Zen 格式
+    def convert_node(data):
+        node = {"id": data.get("id", str(uuid.uuid4())), "title": data["topic"]}
+        if "children" in data and data["children"]:
+            node["children"] = {"attached": [convert_node(c) for c in data["children"]]}
+        return node
 
-    # 开始进行递归调用，将根节点作为第一个父节点进行调用
-    add_node(sheet.getRootTopic(), xmind_json['data'])
-    xmind.save(workbook)
+    # 构建 content.json（XMind Zen 格式）
+    content = [{
+        "id": str(uuid.uuid4()),
+        "title": xmind_json.get("meta", {}).get("name", "Mind Map"),
+        "rootTopic": convert_node(xmind_json["data"])
+    }]
 
-def gen_exam(text):
+    # 写入 ZIP（.xmind 本质就是 ZIP）
+    filepath = f"static/xminds/{filename.split('.')[0]}.xmind"
+    with zipfile.ZipFile(filepath, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("content.json", json.dumps(content, ensure_ascii=False))
+        zf.writestr("metadata.json", json.dumps({"creator": {"name": "AI生成", "version": "1.0"}}, ensure_ascii=False))
+        zf.writestr("manifest.json", json.dumps({"fileEntries": [{"path": "content.json"}]}, ensure_ascii=False))
+
+def gen_exam(text, existing_questions=None):
+    avoid_prompt = ""
+    if existing_questions:
+        avoid_prompt = f"\n<已有题目（请勿出相同的题目，请确保新题目与已有题目不同）>\n{existing_questions}\n</已有题目>"
+
     prompt = '''<task>请根据给你的文字内容所涉及到的所有知识点，出8个选择题和3个问答题。
         如果文本中给到的信息不足，你可以联网查询或自行拓展相关知识点的内容来生成对应的考题。
         注意，任何考题一定要跟对应的知识点相关联。</task>，请按照以下JSON结构来出题：
@@ -406,7 +413,7 @@ def gen_exam(text):
                 },
                 "answer": "A"
             }],
-            "qas": 
+            "qas":
             [{
                 "question": "xxxxxxxxx",
                 "answer": "xxxxxxxxxxx"
@@ -418,7 +425,7 @@ def gen_exam(text):
         3. 必须按照给出的json格式出题，最后请返回生成选择题和问答题的json字符串即可。
         4. 选择题和问答题的出题数目必须严格跟要求数量一致。
         </rules>
-        具体要参考的文本内容如下：\n ''' + text
+        具体要参考的文本内容如下：\n ''' + text + avoid_prompt
 
     messages = [{'role': 'system', 'content': '你是一名老师，擅长根据知识要点出各种对应的考试题目'},
                 {'role': 'user', 'content': prompt}]
@@ -431,34 +438,31 @@ def gen_exam(text):
     return responses.output.text.replace("```json", "").replace("```", "")
 
 
-def insert_exam(examtext, videoid):
-    exam_json = json.loads(examtext)   # 将JSON字符串解析为JSON
-    choices = exam_json['choices']     # 提取单选和简单题目
+def insert_exam(examtext, videoid, examset=1):
+    exam_json = json.loads(examtext)
+    choices = exam_json['choices']
     qas = exam_json['qas']
 
     with Session(engine) as session:
-        sql = select(Exams).where(Exams.videoid == videoid)
-        # 如果已经在Exams中存在该视频的考题，则不再插入
+        sql = select(Exams).where(Exams.videoid == videoid, Exams.examset == examset)
         if len(session.execute(sql).all()) > 0:
             return
 
-        # 遍历每一道单选题，并作为一行插入到exams表中
         for choice in choices:
             question = choice['question']
             answer = choice['answer']
-            options = choice['options']   # options仍然为一个JSON，此处不再单独解析
+            options = choice['options']
             type = "choice"
-            t_exam = Exams(videoid=videoid, question=question, answer=answer, type=type,
+            t_exam = Exams(videoid=videoid, examset=examset, question=question, answer=answer, type=type,
                            score=5, options=str(options), createtime=datetime.now())
             session.add(t_exam)
             session.commit()
 
-        # 遍历每一道简答题，并作为一行插入到exams表中
         for qa in qas:
             question = qa['question']
             answer = qa['answer']
             type = "qa"
-            t_exam = Exams(videoid=videoid, question=question, answer=answer,
+            t_exam = Exams(videoid=videoid, examset=examset, question=question, answer=answer,
                            type=type, score=20, createtime=datetime.now())
             session.add(t_exam)
             session.commit()
@@ -538,9 +542,9 @@ def ai_score(user_answer, userid, examid, question, ai_answer):
     return score
 
 
-def insert_score(userid, videoid, examid, answer, score):
+def insert_score(userid, videoid, examid, answer, score, examset=1):
     with Session(engine) as session:
-        score = Scores(userid=userid, videoid=videoid, examid=examid,
+        score = Scores(userid=userid, videoid=videoid, examid=examid, examset=examset,
                 answer=answer, score=score, createtime=datetime.now())
         session.add(score)
         session.commit()

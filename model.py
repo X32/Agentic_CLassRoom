@@ -41,6 +41,7 @@ class Videos(SQLModel, table=True):
 class Exams(SQLModel, table=True):
     examid: Optional[int] = Field(default=None, primary_key=True)
     videoid: Optional[int] = Field(default=None, foreign_key="videos.videoid")
+    examset: int = Field(default=1)
     question: str
     type: str
     answer: str
@@ -53,6 +54,7 @@ class Scores(SQLModel, table=True):
     userid: Optional[int] = Field(default=None, foreign_key="users.userid")
     videoid: Optional[int] = Field(default=None, foreign_key="videos.videoid")
     examid: Optional[int] = Field(default=None, foreign_key="exams.examid")
+    examset: int = Field(default=1)
     answer: str
     score: int
     createtime: datetime
