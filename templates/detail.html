@@ -42,10 +42,20 @@
       </div>
     </div>
 
-    <!-- 定义video元素用于对当前视频进行播放，可选功能 -->
+    <!-- 定义video元素用于对当前视频进行播放，仅在有视频文件时显示 -->
+    {% if video.filename.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.webm')) %}
     <div class="play">
         <video src="/static/videos/{{video.filename}}" controls width="1200" height="675"/>
     </div>
+    {% elif video.filename.lower().endswith(('.md', '.txt')) %}
+    <div class="reference" style="margin: 20px auto; max-width: 1200px;">
+        <a href="/static/docs/{{video.filename}}" download>下载原文文件</a>
+    </div>
+    {% elif video.filename.lower().endswith('.pdf') %}
+    <div class="reference" style="margin: 20px auto; max-width: 1200px;">
+        <a href="/static/pdfs/{{video.filename}}" download>下载 PDF 文件</a>
+    </div>
+    {% endif %}
 
     <div class="summary">
         {{video.summary|safe}}
